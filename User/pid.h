@@ -20,6 +20,6 @@ typedef struct{
 }pid_t;
 
 void pid_update(pid_t *p);
-
+void pid_init(pid_t *p);
 
 #endif
