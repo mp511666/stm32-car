@@ -12,7 +12,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-/*MPU6050测试*/
 int16_t AX, AY, AZ, GX, GY, GZ;
 uint8_t TimerErrorFlag;
 uint16_t TimerCount;
