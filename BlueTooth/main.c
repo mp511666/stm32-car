@@ -1,7 +1,8 @@
 #include "stm32f10x.h"                  // Device header
 #include "Delay.h"
-#include "OLED.h"
+#include "LED.h"
 #include "Motor.h"
+#include "OLED.h"
 #include "Key.h"
 #include "Timer.h"
 #include "Control.h"
@@ -15,17 +16,18 @@
 #define PWM_MAX   1000
 #define PWM_MIN  -1000
 
-//获取平均PWM（由角度环+速度环产生）
-extern float Get_Average_PWM(void);
-//电机PWM设置函数（假设使用TIM1等）
-extern void SetMotorPWM(int left, int right);
-//获取角度环和速度环的PID的系数
-extern float ANGLE_KP,ANGLE_KI,ANGLE_KD,SPEED_KP,SPEED_KI,SPEED_KD;
+////获取平均PWM（由角度环+速度环产生）
+//extern float Get_Average_PWM(void);
+////电机PWM设置函数（假设使用TIM1等）
+//extern void SetMotorPWM(int left, int right);
+
+extern PID turn_pid,angle_pid,speed_pid,move_pid;
 
 int main(void)
 {
 	//初始化转向环和定时器
-    TurnControl_Init();
+	Serial_Init();
+	TurnControl_Init();
 	Timer_Init();
 
 	while(1)
@@ -67,51 +69,69 @@ int main(void)
 			{
 				char* Name=strtok(NULL,",");
 				char* Value=strtok(NULL,",");
-				
-				if(strcmp(Name,"ANGLE_KP")==0)
+				//角度环
+				if(strcmp(Name,"Angle_Kp")==0)
 				{
-					float FloatValue=atof(Value);//atof返回double类型，这里会进行隐式类型转换
-					printf("ANGLE_KP=%f\r\n",FloatValue);
+					angle_pid.Kp = atof(Value);//atof返回double类型，这里会进行隐式类型转换
+					printf("Angle_Kp=%f\r\n",angle_pid.Kp);
 				}
-				else if(strcmp(Name,"ANGLE_KI")==0)
+				else if(strcmp(Name,"Angle_Ki")==0)
 				{
-					float FloatValue=atof(Value);//atof返回double类型，这里会进行隐式类型转换
-					printf("ANGLE_KI=%f\r\n",FloatValue);
+					angle_pid.Ki = atof(Value);//atof返回double类型，这里会进行隐式类型转换
+					printf("Angle_Ki=%f\r\n",angle_pid.Ki);
 				}
-				else if(strcmp(Name,"ANGLE_KD")==0)
+				else if(strcmp(Name,"Angle_Kd")==0)
 				{
-					float FloatValue=atof(Value);//atof返回double类型，这里会进行隐式类型转换
-					printf("ANGLE_KD=%f\r\n",FloatValue);
+					angle_pid.Kd = atof(Value);//atof返回double类型，这里会进行隐式类型转换
+					printf("Angle_Kd=%f\r\n",angle_pid.Kd);
 				}
-				else if(strcmp(Name,"SPEED_KP")==0)
+				//速度环
+				else if(strcmp(Name,"Speed_Kp")==0)
 				{
-					float FloatValue=atof(Value);//atof返回double类型，这里会进行隐式类型转换
-					printf("SPEED_KP=%f\r\n",FloatValue);
+					speed_pid.Kp = atof(Value);//atof返回double类型，这里会进行隐式类型转换
+					printf("Speed_Kp=%f\r\n",speed_pid.Kp);
 				}
-				else if(strcmp(Name,"SPEED_KI")==0)
+				else if(strcmp(Name,"Speed_Ki")==0)
 				{
-					float FloatValue=atof(Value);//atof返回double类型，这里会进行隐式类型转换
-					printf("SPEED_KI=%f\r\n",FloatValue);
+					speed_pid.Ki = atof(Value);//atof返回double类型，这里会进行隐式类型转换
+					printf("Speed_Ki=%f\r\n",speed_pid.Ki);
 				}
-				else if(strcmp(Name,"SPEED_KD")==0)
+				else if(strcmp(Name,"Speed_Kd")==0)
 				{
-					float FloatValue=atof(Value);//atof返回double类型，这里会进行隐式类型转换
-					printf("SPEED_KD=%f\r\n",FloatValue);
+					speed_pid.Kd = atof(Value);//atof返回double类型，这里会进行隐式类型转换
+					printf("Speed_Kd=%f\r\n",speed_pid.Kd);
 				}
-				else if(strcmp(Name,"TURN_KP")==0)
+				//位置环
+				else if(strcmp(Name,"Move_Kp")==0)
 				{
-					float FloatValue=atof(Value);//atof返回double类型，这里会进行隐式类型转换
-					printf("TURN_KP=%f\r\n",FloatValue);
+					move_pid.Kp = atof(Value);//atof返回double类型，这里会进行隐式类型转换
+					printf("Move_Kp=%f\r\n",move_pid.Kp);
 				}
-				else if(strcmp(Name,"TURN_KI")==0)
+				else if(strcmp(Name,"Move_Ki")==0)
 				{
-					float FloatValue=atof(Value);//atof返回double类型，这里会进行隐式类型转换
-					printf("TURN_KI=%f\r\n",FloatValue);
+					move_pid.Ki = atof(Value);//atof返回double类型，这里会进行隐式类型转换
+					printf("Move_Ki=%f\r\n",move_pid.Ki);
 				}
-				else if(strcmp(Name,"TURN_KD")==0)
+				else if(strcmp(Name,"Move_Kd")==0)
 				{
-					float FloatValue=atof(Value);//atof返回double类型，这里会进行隐式类型转换
-					printf("TURN_KD=%f\r\n",FloatValue);
+					move_pid.Kd = atof(Value);//atof返回double类型，这里会进行隐式类型转换
+					printf("Move_Kd=%f\r\n",move_pid.Kd);
+				}
+				//转向环
+				else if(strcmp(Name,"Turn_Kp")==0)
+				{
+					turn_pid.Kp = atof(Value);//atof返回double类型，这里会进行隐式类型转换
+					printf("Turn_Kp=%f\r\n",turn_pid.Kp);
+				}
+				else if(strcmp(Name,"Turn_Ki")==0)
+				{
+					turn_pid.Ki = atof(Value);//atof返回double类型，这里会进行隐式类型转换
+					printf("Turn_Ki=%f\r\n",turn_pid.Ki);
+				}
+				else if(strcmp(Name,"Turn_Kd")==0)
+				{
+					turn_pid.Kd = atof(Value);//atof返回double类型，这里会进行隐式类型转换
+					printf("Turn_Kd=%f\r\n",turn_pid.Kd);
 				}
 			}
 			BlueTooth_RxFlag = 0;//置0，这个数据包接收完成，可以继续下一个了
@@ -124,29 +144,30 @@ void TIM2_IRQHandler(void)
 {
     if (TIM_GetITStatus(TIM2, TIM_IT_Update) == SET)
 	{
-        //获取差分PWM
-        float turn = TurnControl_GetOutput();
-        
-        //获取平均PWM（pid数值上等价于PWM）
-        float avg = Get_Average_PWM();
-        
-        //计算左右轮PWM——强制类型转换
-        int left  = (int)(avg + turn/2);
-		int right = (int)(avg - turn/2);
-        
-        //PWM限幅
-        if (left  > PWM_MAX) 
-			left  = PWM_MAX;
-        if (left  < PWM_MIN) 
-			left  = PWM_MIN;
-        if (right > PWM_MAX) 
-			right = PWM_MAX;
-        if (right < PWM_MIN) 
-			right = PWM_MIN;
-		
-        //输出
-        SetMotorPWM(left, right);
-		
+//        //获取差分PWM
+//        float turn = TurnControl_GetOutput();
+//        
+//        //获取平均PWM（pid数值上等价于PWM）
+//        float avg = Get_Average_PWM();
+//        
+//        //计算左右轮PWM——强制类型转换
+//        int left  = (int)(avg + turn/2);
+//		int right = (int)(avg - turn/2);
+//        
+//        //PWM限幅
+//        if (left  > PWM_MAX) 
+//			left  = PWM_MAX;
+//        if (left  < PWM_MIN) 
+//			left  = PWM_MIN;
+//        if (right > PWM_MAX) 
+//			right = PWM_MAX;
+//        if (right < PWM_MIN) 
+//			right = PWM_MIN;
+//		
+//        //输出
+//        SetMotorPWM(left, right);
+//		
+
 		//清除中断标志位
 		TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
     }
