@@ -1,6 +1,6 @@
 #include "stm32f10x.h"                  // Device header
 #include "pid.h"
-
+#include "Grayscale_Sensor.h"
 void pid_init(pid_t *p)
 {
 		p->target =0;
