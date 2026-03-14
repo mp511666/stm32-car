@@ -23,6 +23,15 @@
 
 extern PID turn_pid,angle_pid,speed_pid,move_pid;
 
+//路线结构体
+typedef struct
+{
+	float distance;
+	uint8_t circle;
+}Line;
+
+Line line;
+
 int main(void)
 {
 	//初始化转向环和定时器
@@ -46,22 +55,32 @@ int main(void)
 			if(strcmp(Tag,"key")==0)
 			{
 				char* Name=strtok(NULL,",");
+				char* Distance=strtok(NULL,",");
+				char* Circle=strtok(NULL,",");
 				
-				if(strcmp(Name,"Line1")==0)
+				if(strcmp(Name,"Line1")==0&&strcmp(Distance,"100.0")==0&&strcmp(Circle,"1")==0)
 				{
-					printf("Line1\r\n");
+					line.distance = atof(Distance) ;
+					line.circle = atoi(Circle);
+					printf("Line1,%f,%d\r\n",line.distance,line.circle);
 				}
-				else if(strcmp(Name,"Line2")==0)
+				else if(strcmp(Name,"Line2")==0&&strcmp(Distance,"451.2")==0&&strcmp(Circle,"1")==0)
 				{
-					printf("Line2\r\n");
+					line.distance = atof(Distance) ;
+					line.circle = atoi(Circle);
+					printf("Line2,%f,%d\r\n",line.distance,line.circle);
 				}
-				else if(strcmp(Name,"Line3")==0)
+				else if(strcmp(Name,"Line3")==0&&strcmp(Distance,"507.2")==0&&strcmp(Circle,"1")==0)
 				{
-					printf("Line3\r\n");
+					line.distance = atof(Distance) ;
+					line.circle = atoi(Circle);
+					printf("Line3,%f,%d\r\n",line.distance,line.circle);
 				}
-				else if(strcmp(Name,"Line4")==0)
+				else if(strcmp(Name,"Line4")==0&&strcmp(Distance,"2028.8")==0&&strcmp(Circle,"4")==0)
 				{
-					printf("Line4\r\n");
+					line.distance = atof(Distance) ;
+					line.circle = atoi(Circle);
+					printf("Line4,%f,%d\r\n",line.distance,line.circle);
 				}
 			}
 			//滑杆——调节pid参数
