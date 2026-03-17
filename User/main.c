@@ -73,7 +73,7 @@ pid_t turnpid={
 	
 		.integral_limit=100,
 		.outmax=300,
-		.outmin=300
+		.outmin=-300
 };
 /*线路选择*/
 typedef struct
@@ -85,9 +85,6 @@ Line line;
 uint8_t linestate;
 void Blue_Process(void)
 {
-		char* Name=strtok(NULL,",");
-		char* Distance=strtok(NULL,",");
-		char* Circle=strtok(NULL,",");
 	//如果连续发送数据包，程序处理不及时，可能导致数据包错位，利用RxFlag实现，不采取读取Flag之后立刻清除的策略
 		if(BlueTooth_RxFlag == 1)
 		{
@@ -107,7 +104,7 @@ void Blue_Process(void)
 				{
 					line.distance = atof(Distance) ;
 					line.circle = atoi(Circle);
-					linestate =1;
+					linestate =1;movestate=1;
 					printf("Line1,%f,%d\r\n",line.distance,line.circle);
 				}
 				else if(strcmp(Name,"Line2")==0&&strcmp(Distance,"451.2")==0&&strcmp(Circle,"1")==0)
@@ -240,25 +237,20 @@ int main(void)
 	Timer_Init();
 	Beeper_init();
 	Grayscale_Sensor_Init();
+	pid_init(&anglepid);
+	pid_init(&speedpid);
+	pid_init (&movepid );
+	pid_init(&turnpid);
+	RunFlag=1;
+	movestate =0;
+	movepid.target = 0; // 位置目标归零
+  speedpid.target = 0; // 速度目标归零
+	
 	while (1)
 	{
 		if(RunFlag ){LED_ON() ;} else {LED_OFF ();}
 		Blue_Process();
-		if(RunFlag==0)
-							{
-								pid_init(&anglepid);
-								pid_init(&speedpid);
-								pid_init (&movepid );
-								pid_init(&turnpid);
-								RunFlag=1;
-								movestate =1;
-							}
-						else
-							{
-								RunFlag=0;
-							}
-
-		}	
+	}
 }
 		
 float TurnControl_GetOutput(void)
@@ -269,8 +261,8 @@ float TurnControl_GetOutput(void)
 
 static uint8_t last_level=0;
 static uint16_t StopTimer = 0;   // 停车计时
-static uint16_t BeepTimer = 0; // 蜂鸣器计时
-uint8_t WayPoint=1; //ABCD点位
+//static uint16_t BeepTimer=0;
+static uint8_t WayPoint=1; //ABCD点位
 void TIM1_UP_IRQHandler(void)
 {
 	static uint16_t Count0=0;
@@ -279,6 +271,7 @@ void TIM1_UP_IRQHandler(void)
 	 	  TIM_ClearITPendingBit(TIM1, TIM_IT_Update);
 	  	Beeper_Process();	
 			if(StopTimer > 0) StopTimer--;
+			
 			/*姿态解算*/
 			mpu6050_GetData(&AX, &AY, &AZ, &GX, &GY, &GZ);
 			GY-=16;   //GY存在零漂，手动给其偏移,后续需要自己调
@@ -305,11 +298,11 @@ void TIM1_UP_IRQHandler(void)
 			}
 			/*通过高低电平检测是否达到停车点*/
 			uint8_t current_level=GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_6);
-			 uint8_t edge_detected = 0;
+			 
 			if(current_level!=last_level)
 			{
-				edge_detected = 1;
 				WayPoint++;
+				movestate=2;
 				last_level=current_level;
 			}
 			
@@ -331,7 +324,7 @@ void TIM1_UP_IRQHandler(void)
 				Motor_SetPWM (1,leftpwm);
 				Motor_SetPWM (2,rightpwm);
 			}
-		}
+	}
 		Count0++;
 		if(Count0 >=5)   //读取编码器的时间间隔：50ms
 		{
@@ -341,24 +334,26 @@ void TIM1_UP_IRQHandler(void)
 			
 				avespeed=(leftspeed+rightspeed)/2.0;
 				difspeed =leftspeed -rightspeed ;
+			
 			if(RunFlag)
 			{
 					if(linestate==1)
 				{
-					if (movestate== 1) 
+					if(movestate==1)
 					{
-						movepid.target=line.distance;	
-						movepid .actual  += avespeed * 0.05f;
+							movepid.target=line.distance;	
+							movepid .actual  += avespeed * 0.05f;
+						
 						if(fabs(movepid .er0)<=stopzone ) //准备跑过头
 						{
 							movepid .out=0;
 							movestate=2;
 							StopTimer = 200;    // 停 2 秒
-              BeepTimer = 100;     // 响 0.5 秒
               Beeper_start();
-							WayPoint =1;
+							RunFlag=0;
 						}
-						else if(fabs(movepid .er0)>stopzone ) //未跑过头
+						
+						else//未跑过头
 						{
 							if(movepid .er0 >slowdist )
 							{
@@ -372,14 +367,14 @@ void TIM1_UP_IRQHandler(void)
 							}
 						}
 						speedpid.target=movepid .out;
-					}
 						speedpid .actual =avespeed;
 						pid_update(&speedpid );
+					}
 				}
 				
 				if(linestate==2)
 				{
-					if (movestate==1&&(WayPoint==1||WayPoint ==3)) 
+					if ((WayPoint==1||WayPoint ==3)&&movestate==1) 
 					{
 						movepid.target=line.distance;	
 						movepid .actual  += avespeed * 0.05f;
@@ -387,11 +382,11 @@ void TIM1_UP_IRQHandler(void)
 						{
 							movepid .out=0;
 							Beeper_start ();
-							movestate=2;
-							StopTimer = 100; // 停 1 秒
-              BeepTimer = 30;
+							StopTimer = 2; // 停 1 秒
+//             BeepTimer = 30;
+							movepid.actual=0;
 						}
-						else if(fabs(movepid .er0)>stopzone ) //未跑过头
+						else //未跑过头
 						{
 							if(movepid .er0 >slowdist )
 							{
@@ -403,29 +398,28 @@ void TIM1_UP_IRQHandler(void)
 								pid_update(&movepid);
 								if (movepid.out  > movepid.outmax ) {movepid.out = movepid.outmax;}
 							}
-							speedpid.target=movepid .out;
 						}
+						speedpid.target=movepid .out;
 						speedpid .actual =avespeed;
 						pid_update(&speedpid );
 					}
 					if(movestate==2&&(WayPoint==2||WayPoint ==4))
 					{
+						Beeper_start ();
+						StopTimer = 100; 
 						movestate=1;
 						speedpid.target =2; //目标速度自己调
 						speedpid.actual =avespeed ;
 						pid_update (&speedpid);
 					}
-					Beeper_start ();
-					if(WayPoint==2){movestate=1;}
-					else if(WayPoint==4){movestate=0;}
 					
-		}
-		if (TIM_GetITStatus(TIM1, TIM_IT_Update) == SET)
-		{
-			TimerErrorFlag = 1;
-			TIM_ClearITPendingBit(TIM1, TIM_IT_Update);
-		}
-		TimerCount = TIM_GetCounter(TIM1);
+					if(movestate==2&&WayPoint==5)
+					{
+						Beeper_start ();
+						RunFlag =0;
+					}
+				}
+			}
+			
 	}
- }
 }
