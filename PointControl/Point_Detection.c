@@ -1,6 +1,8 @@
 #include "stm32f10x.h"                  // Device header
 #include "Point_Detection.h"
 
+static uint16_t point_count = 0;
+
 //点检测初始化
 void PointDetection_Init(void)
 {
@@ -31,10 +33,60 @@ void PointDetection_Update(void)
             // 清零变化计数器，准备下一次检测
             change_cnt = 0;
         }
+		//点计数
+		point_count++;
     } 
 	else // 与稳定电平相同：说明之前的异动可能是噪声，清零计数器
 	{
         
         change_cnt = 0;
     }
+}
+
+uint8_t WayPoint,linestate;
+//点实时反馈
+void Point_Feedback(void)
+{
+	//路线1/2用这个
+	if(linestate == 1 | linestate == 2)
+	{
+		switch(WayPoint)
+		{
+			case 1:
+				printf("Pass A");
+			    break;
+			case 2:
+				printf("Pass B");
+			    break;
+			case 3:
+				printf("Pass C");
+			    break;
+			case 4:
+				printf("Pass D");
+			    break;
+			default:
+				printf("error");
+		}
+	}
+	//路线3/4用这个
+	else if(linestate == 3 | linestate == 4)
+	{
+		switch(WayPoint)
+		{
+			case 1:
+				printf("Pass A");
+			    break;
+			case 2:
+				printf("Pass C");
+			    break;
+			case 3:
+				printf("Pass B");
+			    break;
+			case 4:
+				printf("Pass D");
+			    break;
+			default:
+				printf("error");
+		}
+	}
 }
